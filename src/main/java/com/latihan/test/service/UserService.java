@@ -200,16 +200,14 @@ public class UserService {
         UserParty userParty = userPartyRepository.findByUserId(userId);
         if (userParty == null) throw new ValidationException("user Party not found");
 
+        Map<String,String> body = new HashMap<>();
+        body.put("userId", user.id);
+        body.put("name", user.name);
+        body.put("email", user.email);
+
+        template.send(topic, body.toString());
         userRepository.delete(user);
         userPartyRepository.delete(userParty);
-    }
-
-
-    public void sendData(String userId) throws ValidationException{
-        User user = userRepository.findUserById(userId);
-        if (user==null) throw new ValidationException(USER_NOT_FOUND);
-        String[] data = {user.toString()};
-        template.send(topic, Arrays.stream(data).collect(Collectors.toList()).toString());
     }
 
     @Transactional
