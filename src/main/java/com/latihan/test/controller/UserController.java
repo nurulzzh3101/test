@@ -1,5 +1,6 @@
 package com.latihan.test.controller;
 
+import com.latihan.test.dto.UserDto;
 import com.latihan.test.entity.User;
 import com.latihan.test.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,8 +43,8 @@ public class UserController {
     }
 
     @GetMapping(value = "/get/all")
-    public ResponseEntity<List<User>> getAll () throws ValidationException{
-        List<User> user = userService.findAllUser();
+    public ResponseEntity<List<UserDto>> getAll () throws ValidationException{
+        List<UserDto> user = userService.findAllUser();
         return ResponseEntity.ok().body(user);
     }
 

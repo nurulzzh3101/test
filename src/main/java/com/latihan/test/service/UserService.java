@@ -1,16 +1,20 @@
 package com.latihan.test.service;
 
+import com.latihan.test.dto.UserDto;
 import com.latihan.test.entity.*;
 import com.latihan.test.repository.*;
 import com.latihan.test.util.FormatUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import javax.xml.bind.ValidationException;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -29,11 +33,17 @@ public class UserService {
     @Autowired
     private UserTypeRepository userTypeRepository;
 
+    @Autowired
+    private KafkaTemplate<String, String> template;
+
+    @Value("$(user-data)")
+    private String topic;
+
+
     private static final String EMAIL = "email";
     private static final String PHONE = "phone";
     private static final String PASSWORD = "password";
     private static final String USER_NOT_FOUND = "user not found";
-
 
 
     @Transactional
@@ -143,12 +153,21 @@ public class UserService {
     }
 
     @Transactional
-    public List<User> findAllUser() throws ValidationException{
+    public List<UserDto> findAllUser() throws ValidationException{
         List<User> user = userRepository.findAll();
-        if (user == null) throw new ValidationException("theres no one users");
-
-        return user;
+        return user.stream().map(this::getUser).collect(Collectors.toList());
     }
+
+    @Transactional
+    public UserDto getUser (User user) {
+        UserDto userDto = new UserDto();
+        userDto.email = user.email;
+        userDto.nik = user.nik;
+        userDto.name = user.name;
+        userDto.phone = user.phone;
+        return userDto;
+    }
+
 
     @Transactional
     public User updateUser(Map<String,Object> body) throws ValidationException{
@@ -184,4 +203,27 @@ public class UserService {
         userRepository.delete(user);
         userPartyRepository.delete(userParty);
     }
+
+
+    public void sendData(String userId) throws ValidationException{
+        User user = userRepository.findUserById(userId);
+        if (user==null) throw new ValidationException(USER_NOT_FOUND);
+        String[] data = {user.toString()};
+        template.send(topic, Arrays.stream(data).collect(Collectors.toList()).toString());
+    }
+
+    @Transactional
+    @KafkaListener(topics = "${user-activity}")
+    public void addActivity (@Payload String email) throws ValidationException{
+        User user =  userRepository.findUserByEmail(email);
+        if (user==null) throw new ValidationException(USER_NOT_FOUND);
+
+        ActivityUser activityUser = new ActivityUser();
+        activityUser.userId = user.id;
+        activityUser.type = "ADD ACTIVITY";
+        activityUser.desc = "user add activity";
+        activityUser.deviceId = UUID.randomUUID().toString();
+        activityRepository.save(activityUser);
+    }
+
 }
